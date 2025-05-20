@@ -1,39 +1,59 @@
 'use client'
-import { useState } from 'react'
 
-export default function UploadPage() {
-  const [title, setTitle] = useState('')
-  const [video, setVideo] = useState<File | null>(null)
-  const [subtitle, setSubtitle] = useState<File | null>(null)
-  const [thumbnail, setThumbnail] = useState<File | null>(null)
-  const [loading, setLoading] = useState(false)
+import { useState } from 'react';
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!video || !title) return alert('Title and video are required')
+export default function UploadVideo() {
+  const [videoUrl, setVideoUrl] = useState('');
+  const [error, setError] = useState('');
 
-    const form = new FormData()
-    form.append('title', title)
-    form.append('video', video)
-    if (subtitle) form.append('subtitle', subtitle)
-    if (thumbnail) form.append('thumbnail', thumbnail)
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setError('');
+    const fileInput = e.currentTarget.elements.namedItem('video') as HTMLInputElement;
 
-    setLoading(true)
-    const res = await fetch('/api/upload', { method: 'POST', body: form })
-    const data = await res.json()
-    setLoading(false)
+    if (!fileInput?.files?.length) {
+      setError('Please select a file.');
+      return;
+    }
 
-    if (res.ok) alert('Upload complete!')
-    else alert(data.error || 'Failed')
-  }
+    const formData = new FormData();
+    formData.append('video', fileInput.files[0]);
+
+    try {
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json(); // will throw if not valid JSON
+
+      if (data.success) {
+        setVideoUrl(data.url);
+      } else {
+        setError(data.message || 'Upload failed.');
+      }
+    } catch (err) {
+      setError('Upload failed: ' + (err as Error).message);
+    }
+  };
 
   return (
-    <form onSubmit={handleSubmit} className="p-4 space-y-4">
-      <input type="text" placeholder="Title" className="border p-2 w-full" value={title} onChange={(e) => setTitle(e.target.value)} />
-      <input type="file" accept="video/*" onChange={(e) => setVideo(e.target.files?.[0] || null)} title='video' />
-      <input type="file" accept=".srt" onChange={(e) => setSubtitle(e.target.files?.[0] || null)} />
-      <input type="file" accept="image/*" onChange={(e) => setThumbnail(e.target.files?.[0] || null)} />
-      <button type="submit" className="bg-blue-500 text-white px-4 py-2">{loading ? 'Uploading...' : 'Upload Video'}</button>
-    </form>
-  )
+    <div className="p-4">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <input type="file" name="video" accept="video/*" required />
+        <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded">
+          Upload
+        </button>
+      </form>
+
+      {error && <p className="text-red-500 mt-2">{error}</p>}
+
+      {videoUrl && (
+        <video className="mt-4" controls width="400">
+          <source src={videoUrl} type="video/mp4" />
+          Your browser does not support the video tag.
+        </video>
+      )}
+    </div>
+  );
 }
